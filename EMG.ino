@@ -1,4 +1,4 @@
-// This Arduino code is written for MaM Sense Board EMG output. For more info visit: https://mamhightech.com/MamSense.html
+// This Arduino/ESP32 code is written for MaM Sense Board EMG output. For more info visit: https://mamhightech.com/MamSense.html
 // The program detects hand movements and sends commands to actuators. It creates notch filter to suppress AC power line noise at 50 Hz
 //(60 Hz if you are located in North and South America.)
 // For the full table: https://en.wikipedia.org/wiki/Mains_electricity_by_country.
@@ -6,6 +6,16 @@
 
 const short Fs = 1000;    // Sampling frequency(Hz). Must be in range 500-1200 Hz. Default value: 1 kHz
 const int   Ts = 1e6/Fs;  // Sampling period (us);
+//ADC configuration
+const byte adc_in = A2; // ADC input pin.(For example A2 for Arduino Uno, 27 for ESP32)
+const byte adc_bits = 10; // The resolution of your MCU's ADC
+const byte default_bits = 10; // Don't change!
+const float vref = 5; // Reference voltage of your MCU's ADC (V)
+const float default_vref = 5 ;// Default reference voltage of the Arduino Uno (V) Don't Change
+const float adc_scale = pow(2,default_bits-adc_bits)*vref/default_vref; // Scales the input signal
+const float emg_offset = 1.45; // DC offset of the Mam Sense Board EMG output. (V)
+const float sig_offset = round(pow(2,default_bits)*emg_offset/default_vref);
+
 const short f0 = 50;      // Cut-off frequency of the notch filter(Hz).
 const short f1 = 150;     // Second cut-off frequency(Hz). (Must be integer multiple of f0)
 const float w0 = 2*3.1416*f0/Fs;  // Digital cut-off frequency (rad/sample)
@@ -56,7 +66,7 @@ void loop() {
   if(current_time - start_time>= Ts){
  
     start_time = current_time;
-    raw[count%100] = analogRead(A2)-295;
+    raw[count%100] = round( analogRead(adc_in)*adc_scale-sig_offset);
 
     //Filters only the 1st harmonic of the powerline noise
     //emg[count%100] = round(raw[count%100]*num[0] + raw[(count-1)%100]*num[1] + raw[(count-2)%100]*num[2] - emg[(count-1)%100]*den[1] - emg[(count-2)%100]*den[2]);
